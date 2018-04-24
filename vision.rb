@@ -99,15 +99,20 @@ def filter_median(pixels)
             elsif i == HEIGHT-1 && j == WIDTH-1 # bottom right
                 around_town.push(pixels[i][j-1], pixels[i-1][j-1], pixels[i-1][j])
             elsif i == 0 # top edge
-                around_town.push(pixels[i][j-1], pixels[i][j+1], pixels[i+1][j-1], pixels[i+1][j], pixels[i+1][j+1])
+                around_town.push(pixels[i][j-1], pixels[i][j+1], pixels[i+1][j-1],
+                    pixels[i+1][j], pixels[i+1][j+1])
             elsif i == HEIGHT-1 # bottom edge
-                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i-1][j+1], pixels[i][j-1], pixels[i][j+1])
+                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i-1][j+1],
+                    pixels[i][j-1], pixels[i][j+1])
             elsif j == 0 # left edge
-                around_town.push(pixels[i-1][j], pixels[i-1][j+1], pixels[i][j+1], pixels[i+1][j], pixels[i+1][j+1])
+                around_town.push(pixels[i-1][j], pixels[i-1][j+1], pixels[i][j+1],
+                    pixels[i+1][j], pixels[i+1][j+1])
             elsif j == WIDTH-1 # right edge
-                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i][j-1], pixels[i+1][j-1], pixels[i+1][j])
+                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i][j-1],
+                    pixels[i+1][j-1], pixels[i+1][j])
             else
-                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i-1][j+1], pixels[i][j-1], pixels[i][j+1], pixels[i+1][j-1], pixels[i+1][j], pixels[i+1][j+1])
+                around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i-1][j+1],
+                    pixels[i][j-1], pixels[i][j+1], pixels[i+1][j-1], pixels[i+1][j], pixels[i+1][j+1])
             end
 
             # calculate the median value
@@ -131,18 +136,17 @@ def detect_edges(pixels)
     edge_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
     magnitudes = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
 
-    # first, filter the image, since edge detection is sensitive to noise
-
-
     pixels.each_with_index do |ph, i|
         ph.each_with_index do |pix_val, j|
             # ignore edge/corner pixels
             magnitude = 0
             if i != 0 && j != 0 && i != HEIGHT-1 && j != WIDTH-1
                 # calculate delta x
-                delta_x = (pixels[i-1][j+1] + pixels[i][j+1] + pixels[i+1][j+1]) - (pixels[i-1][j-1] + pixels[i][j-1] + pixels[i+1][j-1])
+                delta_x = (pixels[i-1][j+1] + pixels[i][j+1] + pixels[i+1][j+1]) -
+                (pixels[i-1][j-1] + pixels[i][j-1] + pixels[i+1][j-1])
                 # calculate delta y
-                delta_y = (pixels[i-1][j-1] + pixels[i-1][j] + pixels[i-1][j+1]) - (pixels[i+1][j-1] + pixels[i+1][j] + pixels[i+1][j+1])
+                delta_y = (pixels[i-1][j-1] + pixels[i-1][j] + pixels[i-1][j+1]) -
+                (pixels[i+1][j-1] + pixels[i+1][j] + pixels[i+1][j+1])
                 # calculate magnitude
                 magnitude = Math.sqrt((delta_x ** 2) + (delta_y ** 2)).to_i
             end
@@ -207,4 +211,5 @@ write_to_pgm("example.pgm", original_pixels)
 # perform average filter on selected image
 average = filter_average(original_pixels)
 median = filter_median(original_pixels)
+# using median filtering has more precise edges, but more noise. Vice versa for average filtering
 detect_edges(median)
