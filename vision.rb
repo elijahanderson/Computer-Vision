@@ -63,7 +63,8 @@ def filter_average(pixels)
                 sum += pixels[i-1][j] + pixels[i-1][j-1] + pixels[i][j-1] + pixels[i+1][j-1] + pixels[i+1][j]
                 count = 6
             else
-                sum += pixels[i-1][j-1] + pixels[i-1][j] + pixels[i-1][j+1] + pixels[i][j+1] + pixels[i+1][j+1] + pixels[i+1][j] + pixels[i+1][j-1] + pixels[i][j-1]
+                sum += pixels[i-1][j-1] + pixels[i-1][j] + pixels[i-1][j+1] + pixels[i][j+1] + pixels[i+1][j+1] +
+                pixels[i+1][j] + pixels[i+1][j-1] + pixels[i][j-1]
                 count = 9
             end
             # calculate the average
