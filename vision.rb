@@ -10,7 +10,7 @@ MAX_PIXEL = 255
 original_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
 
 # write pgm data to a pgm file
-def write_to_pgm(to_write, original_pixels)
+def write_to_pgm(to_write, pixels)
     # if it already exists, delete it and create a new one
     if File.file?(to_write)
         File.delete(to_write)
@@ -19,7 +19,7 @@ def write_to_pgm(to_write, original_pixels)
     File.open(to_write, "w") do |pgm|
         # store in P2 format
         pgm.write("P2\n#{WIDTH} #{HEIGHT}\n#{MAX_PIXEL}\n")
-        original_pixels.each do |i|
+        pixels.each do |i|
             i.each do |pixel|
                 pgm.write("#{pixel} ")
             end
@@ -132,6 +132,7 @@ def filter_median(pixels)
 end
 
 # perform edge detection on the image, save result as "edge.pgm"
+# => returns the 2D array of the edge pixels
 def detect_edges(pixels)
     puts "Performing edge detection on your image..."
     edge_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
@@ -161,7 +162,7 @@ def detect_edges(pixels)
     # loop through magnitudes, if pixel magnitude is greater than avg magnitude, fill the pixel in
     magnitudes.each_with_index do |ph, i|
         ph.each_with_index do |pix_mag, j|
-            if pix_mag > avg_mag
+            if pix_mag > avg_mag * 3
                 edge_pixels[i][j] = 255
             end
         end
@@ -169,6 +170,95 @@ def detect_edges(pixels)
     # write to 'edge.pgm'
     write_to_pgm("edge.pgm", edge_pixels)
     puts "Done"
+    # return the set of edge pixels
+    return edge_pixels
+end
+
+# Uses the Hough transform to detect lines, save the result as "lines.pgm"
+def detect_lines(pixels)
+    puts "Performing line detection on your image..."
+    line_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
+    pix_lines = Hash.new # to keep track of lines for each pixel
+    vert_lines = [] # to keep track of vertical lines
+    pixels.each_with_index do |ph, i|
+        ph.each_with_index do |pix_val, j|
+            # for each edge pixel, find all possible lines that pass through that pixel
+            if pix_val == 255
+                # iterate through possible non-vertical lines
+                m = -200.0
+                while m <= 200.0
+                    b = i - (j * m) # calculate intercept -- i = y (rows), j = x (cols)
+                    line = [b, m]
+                    # record occurance of the line in pix_lines
+                    if pix_lines.has_key?(line)
+                        pix_lines[line] += 1
+                    else
+                        pix_lines[line] = 1
+                    end
+                    m += 0.5
+                end
+                # check for vertical line
+                count = 0
+                if !vert_lines.include?(j) # if col doesn't already have a vertical line classified
+                    for y in 0..HEIGHT-1
+                        if pixels[y][j] == 255
+                            count += 1
+                        end
+                        if count >= 35
+                            vert_lines.push(j) # use col value to classify vertical lines
+                        end
+                    end
+                end
+            end
+        end
+    end
+    lines = []
+    # find top 10 lines
+    lines = pix_lines.sort_by { |key, val| -val }.first(10).map(&:first)
+    print lines
+    # write to 'lines.pgm'
+    write_lines("lines.pgm", pixels, lines, vert_lines)
+    puts "Done."
+end
+
+# draw the most common lines on the given image, save result as "lines.pgm"
+def write_lines(to_write, pixels, lines, vert_lines)
+    if File.file?(to_write)
+        File.delete(to_write)
+    end
+    File.open(to_write, "w") do |pgm|
+        # store in P2 format
+        pgm.write("P2\n#{WIDTH} #{HEIGHT}\n#{MAX_PIXEL}\n")
+
+        # write each line over the edge image
+        lines.each do |line|
+            puts "In line!"
+            m = line[1].to_i # slope
+            y = line[0].to_i # get initial y-intercept
+            x = 0
+            i = 0 # to keep track of iterations
+            while i < 190 # the longest diagonal line is about 181 pixels
+                if y < HEIGHT && x < WIDTH
+                    puts "#{x}, #{y}"
+                    pixels[y][x] = 150 # color it light gray
+                end
+                y -= m
+                x += 1
+                i += 1
+            end
+        end
+        vert_lines.each do |col|
+            for y in 0..HEIGHT-1
+                pixels[y][col] = 150
+            end
+        end
+        # write the updated pixel image
+        pixels.each do |i|
+            i.each do |pixel|
+                pgm.write("#{pixel} ")
+            end
+        end
+    end
 end
 
 # prompt the user to enter a .pgm format file name containing an image of a number (for this project)
@@ -208,9 +298,9 @@ else
     abort("That file does not appear to exist -- program terminated.")
 end
 
-write_to_pgm("example.pgm", original_pixels)
 # perform average filter on selected image
 average = filter_average(original_pixels)
 median = filter_median(original_pixels)
 # using median filtering has more precise edges, but more noise. Vice versa for average filtering
-detect_edges(median)
+edges = detect_edges(median)
+detect_lines(edges)
