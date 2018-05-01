@@ -177,7 +177,6 @@ end
 # Uses the Hough transform to detect lines, save the result as "lines.pgm"
 def detect_lines(pixels)
     puts "Performing line detection on your image..."
-    line_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
     pix_lines = Hash.new # to keep track of lines for each pixel
     vert_lines = [] # to keep track of vertical lines
     pixels.each_with_index do |ph, i|
@@ -185,8 +184,8 @@ def detect_lines(pixels)
             # for each edge pixel, find all possible lines that pass through that pixel
             if pix_val == 255
                 # iterate through possible non-vertical lines
-                m = -200.0
-                while m <= 200.0
+                m = -20.0
+                while m <= 20.0
                     b = i - (j * m) # calculate intercept -- i = y (rows), j = x (cols)
                     line = [b, m]
                     # record occurance of the line in pix_lines
@@ -203,6 +202,8 @@ def detect_lines(pixels)
                     for y in 0..HEIGHT-1
                         if pixels[y][j] == 255
                             count += 1
+                        elsif pixels[y][j] == 0 && count >= 1 # break in the line
+                            break # end loop, don't push the line
                         end
                         if count >= 35
                             vert_lines.push(j) # use col value to classify vertical lines
@@ -213,12 +214,40 @@ def detect_lines(pixels)
         end
     end
     lines = []
-    # find top 10 lines
-    lines = pix_lines.sort_by { |key, val| -val }.first(10).map(&:first)
+    # find top 5 lines
+    lines = pix_lines.sort_by { |key, val| -val }.first(5).map(&:first)
     print lines
     # write to 'lines.pgm'
     write_lines("lines.pgm", pixels, lines, vert_lines)
     puts "Done."
+end
+
+def detect_circles(pixels)
+    puts "Performing circle detection..."
+    circle_count = Hash.new
+    pixels.each_with_index do |ph, i|
+        ph.each_with_index do |pix_val, j|
+            # for each edge pixel, find all possible circles that pass through that pixel
+            if pix_val == 255
+                # iterate through all the possible origins of the circle
+                for x_o in 0..WIDTH-1
+                    for y_o in 0..HEIGHT-1
+                        r = Math.sqrt(((j - x_o) ** 2) + ((i - y_o) ** 2)).to_i
+                        if r >= 5 && r <= 60 # only count good sized circles
+                            circle = [x_o, y_o, r]
+                            if circle_count.has_key?(circle)
+                                circle_count[circle] += 1
+                            else
+                                circle_count[circle] = 1
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    print circle_count.sort_by { |key, val| -val }.first(20).map(&:first)
+    puts "Done"
 end
 
 # draw the most common lines on the given image, save result as "lines.pgm"
@@ -237,16 +266,36 @@ def write_lines(to_write, pixels, lines, vert_lines)
             y = line[0].to_i # get initial y-intercept
             x = 0
             i = 0 # to keep track of iterations
-            while i < 190 # the longest diagonal line is about 181 pixels
-                if y < HEIGHT && x < WIDTH
+            # horizontal lines
+            if m == 0.0
+                while x < WIDTH
                     puts "#{x}, #{y}"
                     pixels[y][x] = 150 # color it light gray
+                    x += 1
                 end
-                y -= m
-                x += 1
-                i += 1
+            elsif m > -1.0 && m < 1.0
+                puts "#{x}, #{y}"
+            elsif m < 0.0
+                x = -y / m # solve x for when y is 0
+                y = 0
+                while y <= HEIGHT-1 && x >= 0
+                    puts "#{x}, #{y}"
+                    pixels[y][x] = 150
+                    y -= m
+                    x -= 1
+                end
+            else
+                x = y / m
+                y = 0
+                while y <= HEIGHT-1 && x >=0
+                    puts "#{x}, #{y}"
+                    pixels[y][x] = 150
+                    y += m
+                    x -= 1
+                end
             end
         end
+        # vertical lines
         vert_lines.each do |col|
             for y in 0..HEIGHT-1
                 pixels[y][col] = 150
@@ -304,3 +353,4 @@ median = filter_median(original_pixels)
 # using median filtering has more precise edges, but more noise. Vice versa for average filtering
 edges = detect_edges(median)
 detect_lines(edges)
+detect_circles(edges)
