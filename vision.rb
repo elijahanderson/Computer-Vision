@@ -25,7 +25,6 @@ def write_to_pgm(to_write, pixels)
             end
         end
     end
-
 end
 
 # perform an average filter on a pgm image, save the result as 'average.pgm'
@@ -33,7 +32,7 @@ end
 def filter_average(pixels)
     puts "Performing average filtering on your image..."
     avg_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
-
+    # calculate the new value of each pixel
     pixels.each_with_index do |ph, i| # ph for placeholder
         ph.each_with_index do |pix_val, j|
             sum = pix_val # the center pixel value
@@ -85,7 +84,7 @@ end
 def filter_median(pixels)
     puts "Performing median filtering on your image..."
     med_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
-
+    # calculate the new value of each pixel
     pixels.each_with_index do |ph, i|
         ph.each_with_index do |pix_val, j|
             # array to store the current pixel and its 8 surrounding pixels
@@ -115,7 +114,6 @@ def filter_median(pixels)
                 around_town.push(pixels[i-1][j-1], pixels[i-1][j], pixels[i-1][j+1],
                     pixels[i][j-1], pixels[i][j+1], pixels[i+1][j-1], pixels[i+1][j], pixels[i+1][j+1])
             end
-
             # calculate the median value
             around_town.sort!
             len = around_town.length
@@ -137,7 +135,7 @@ def detect_edges(pixels)
     puts "Performing edge detection on your image..."
     edge_pixels = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
     magnitudes = Array.new(WIDTH, 0) { Array.new(HEIGHT, 0) }
-
+    # calculate each pixel's magnitude
     pixels.each_with_index do |ph, i|
         ph.each_with_index do |pix_val, j|
             # ignore edge/corner pixels
@@ -158,7 +156,6 @@ def detect_edges(pixels)
     # flatten the 2D array to easily calculate average
     flattened_mag = magnitudes.flatten
     avg_mag = flattened_mag.inject {|sum, pix_val| sum + pix_val}.to_f / flattened_mag.size
-
     # loop through magnitudes, if pixel magnitude is greater than avg magnitude, fill the pixel in
     magnitudes.each_with_index do |ph, i|
         ph.each_with_index do |pix_mag, j|
@@ -169,7 +166,7 @@ def detect_edges(pixels)
     end
     # write to 'edge.pgm'
     write_to_pgm("edge.pgm", edge_pixels)
-    puts "Done"
+    puts "Done."
     # return the set of edge pixels
     return edge_pixels
 end
@@ -216,14 +213,19 @@ def detect_lines(pixels)
     lines = []
     # find top 5 lines
     lines = pix_lines.sort_by { |key, val| -val }.first(5).map(&:first)
-    print lines
+    # print out the slope-intercept formulas of the top 5 lines
+    puts "Top 5 lines:"
+    lines.each do |line|
+        puts "\ty = #{line[1]}x + #{line[0]}"
+    end
     # write to 'lines.pgm'
     write_lines("lines.pgm", pixels, lines, vert_lines)
     puts "Done."
 end
 
+# use Hough transformation to detect circles, save result to "circles.pgm"
 def detect_circles(pixels)
-    puts "Performing circle detection..."
+    puts "Performing circle detection... (this will take a hot minute!)"
     circle_count = Hash.new
     pixels.each_with_index do |ph, i|
         ph.each_with_index do |pix_val, j|
@@ -246,8 +248,13 @@ def detect_circles(pixels)
             end
         end
     end
-    print circle_count.sort_by { |key, val| -val }.first(20).map(&:first)
-    puts "Done"
+    circles = circle_count.sort_by { |key, val| -val }.first(5).map(&:first)
+    puts "Top 5 circles:"
+    circles.each do |circle|
+        puts "\t#{circle[2]} = sqrt( (x - #{circle[0]})^2 + (y - #{circle[1]})^2 )"
+    end
+    write_circles("circles.pgm", pixels, circles)
+    puts "Done."
 end
 
 # draw the most common lines on the given image, save result as "lines.pgm"
@@ -258,37 +265,29 @@ def write_lines(to_write, pixels, lines, vert_lines)
     File.open(to_write, "w") do |pgm|
         # store in P2 format
         pgm.write("P2\n#{WIDTH} #{HEIGHT}\n#{MAX_PIXEL}\n")
-
         # write each line over the edge image
         lines.each do |line|
-            puts "In line!"
             m = line[1].to_i # slope
             y = line[0].to_i # get initial y-intercept
             x = 0
             i = 0 # to keep track of iterations
-            # horizontal lines
-            if m == 0.0
+            if m == 0.0 # horizontal lines
                 while x < WIDTH
-                    puts "#{x}, #{y}"
-                    pixels[y][x] = 150 # color it light gray
+                    pixels[y][x] = 180 # color it gray
                     x += 1
                 end
-            elsif m > -1.0 && m < 1.0
-                puts "#{x}, #{y}"
-            elsif m < 0.0
+            elsif m < 0.0 # negative slope
                 x = -y / m # solve x for when y is 0
                 y = 0
                 while y <= HEIGHT-1 && x >= 0
-                    puts "#{x}, #{y}"
                     pixels[y][x] = 150
                     y -= m
                     x -= 1
                 end
-            else
+            else # positive slope
                 x = y / m
                 y = 0
                 while y <= HEIGHT-1 && x >=0
-                    puts "#{x}, #{y}"
                     pixels[y][x] = 150
                     y += m
                     x -= 1
@@ -302,6 +301,63 @@ def write_lines(to_write, pixels, lines, vert_lines)
             end
         end
         # write the updated pixel image
+        pixels.each do |i|
+            i.each do |pixel|
+                pgm.write("#{pixel} ")
+            end
+        end
+    end
+end
+
+# draw the most common circles on the given image, save result as "circles.pgm"
+def write_circles(to_write, pixels, circles)
+    if File.file?(to_write)
+        File.delete(to_write)
+    end
+    File.open(to_write, "w") do |pgm|
+        # store in P2 format
+        pgm.write("P2\n#{WIDTH} #{HEIGHT}\n#{MAX_PIXEL}\n")
+
+        circles.each do |circle|
+            x_o = circle[0]
+            y_o = circle[1]
+            r = circle[2]
+            x = r - 1
+            y = 0
+            dx = 1
+            dy = 1
+            err = dx - (r << 1)
+
+            while x >= y
+                # the mid-point circle algorithm splits the circle into 8 octants, of which
+                # a pixel is drawn on each iteration
+                if x_o - r >= 0 && x_o + r <= 127 && y_o - r >= 0 && y_o + r <= 127
+                    pixels[y_o+y][x_o+x] = 150
+                    pixels[y_o+x][x_o+y] = 150
+                    pixels[y_o+y][x_o-x] = 150
+                    pixels[y_o+x][x_o-y] = 150
+                    pixels[y_o-y][x_o-x] = 150
+                    pixels[y_o-x][x_o-y] = 150
+                    pixels[y_o-y][x_o+x] = 150
+                    pixels[y_o-x][x_o+y] = 150
+
+                    if err <= 0
+                        y += 1
+                        err += dy
+                        dy += 2
+                    end
+                    if err > 0
+                        x -= 1
+                        dx += 2
+                        err += dx - (r << 1)
+                    end
+                # go to the next circle if this one didn't fit
+                else
+                    puts "Circle out of bounds -- skipped."
+                    break
+                end
+            end
+        end
         pixels.each do |i|
             i.each do |pixel|
                 pgm.write("#{pixel} ")
@@ -325,7 +381,7 @@ if File.file?(filename)
     if width != WIDTH || height != HEIGHT || max_pixel != MAX_PIXEL
         abort("Error in image format -- program terminated.")
     end
-    if f_format == "P5"
+    if f_format == "P5" # P5 format
         temp = Array.new(width, 0)
         file2 = File.read(filename)
         file2[15..file2.length-1].split("").each_with_index do |val, i|
