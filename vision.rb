@@ -1,6 +1,7 @@
 =begin
     This project will involve writing a program to perform various computer vision tasks
-    using artificial intelligence.
+    using artificial intelligence, and attempt to predict the digit represented an the
+    image inputted from the user.
 =end
 
 # declare vars for image info
@@ -172,6 +173,7 @@ def detect_edges(pixels)
 end
 
 # Uses the Hough transform to detect lines, save the result as "lines.pgm"
+# => returns the formulas for the top 5 lines
 def detect_lines(pixels)
     puts "Performing line detection on your image..."
     pix_lines = Hash.new # to keep track of lines for each pixel
@@ -221,9 +223,11 @@ def detect_lines(pixels)
     # write to 'lines.pgm'
     write_lines("lines.pgm", pixels, lines, vert_lines)
     puts "Done."
+    return lines, vert_lines
 end
 
 # use Hough transformation to detect circles, save result to "circles.pgm"
+# => return the final image with both lines and circles, & the formulas for the top 5 circles
 def detect_circles(pixels)
     puts "Performing circle detection... (this will take a hot minute!)"
     circle_count = Hash.new
@@ -253,8 +257,9 @@ def detect_circles(pixels)
     circles.each do |circle|
         puts "\t#{circle[2]} = sqrt( (x - #{circle[0]})^2 + (y - #{circle[1]})^2 )"
     end
-    write_circles("circles.pgm", pixels, circles)
+    final_image = write_circles("circles.pgm", pixels, circles)
     puts "Done."
+    return final_image, circles # ruby can return multiple elements, technically as a list
 end
 
 # draw the most common lines on the given image, save result as "lines.pgm"
@@ -310,6 +315,7 @@ def write_lines(to_write, pixels, lines, vert_lines)
 end
 
 # draw the most common circles on the given image, save result as "circles.pgm"
+# => return the final image with both lines and circles
 def write_circles(to_write, pixels, circles)
     if File.file?(to_write)
         File.delete(to_write)
@@ -327,7 +333,7 @@ def write_circles(to_write, pixels, circles)
             dx = 1
             dy = 1
             err = dx - (r << 1)
-
+            # draw the circles
             while x >= y
                 # the mid-point circle algorithm splits the circle into 8 octants, of which
                 # a pixel is drawn on each iteration
@@ -364,7 +370,49 @@ def write_circles(to_write, pixels, circles)
             end
         end
     end
+    return pixels
 end
+
+# use the information acquired through computer vision to predict the digit
+def predict_digit(pixels, lines, vert_lines, circles)
+    # initialize the set of probabilities where the numbers are the indices
+    probabilities = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    # if there were no valid circles found, the digit is probably a 1, 7, 4
+    x_o = circles[0][0]
+    y_o = circles[0][1]
+    r = circles[0][2]
+    # no circles
+    if !(x_o - r >= 0 && x_o + r <= 127 && y_o - r >= 0 && y_o + r <= 127)
+        probabilities[1] += 0.33
+        probabilities[4] += 0.33
+        probabilities[7] += 0.33
+        # if the vertical lines are near each other, it's probably a 1
+        max = vert_lines.max
+        min = vert_lines.min
+        if max != nil && min != nil && max - min < 20
+            probabilities[1] = 1.0
+        # if there's a diagonal line, it's probably a 7
+        else
+            lines.each do |line|
+                if line[1] < 0.0 || line[1] > 0.0
+                    probabilities[7] = 1.0
+                end
+            end
+            # otherwise it's probably a 4
+            if probabilities[7] < 1.0 then probabilities[4] = 1.0 end
+        end
+    # has circles
+    else
+        # had no time to get to this...
+    end
+    num = probabilities.index(probabilities.max)
+    puts "\nI predict that the digit is #{num}"
+end
+
+############################
+########### MAIN ###########
+############################
 
 # prompt the user to enter a .pgm format file name containing an image of a number (for this project)
 puts "Enter a .pgm format file name: "
@@ -405,8 +453,13 @@ end
 
 # perform average filter on selected image
 average = filter_average(original_pixels)
+# perform median filter
 median = filter_median(original_pixels)
 # using median filtering has more precise edges, but more noise. Vice versa for average filtering
 edges = detect_edges(median)
-detect_lines(edges)
-detect_circles(edges)
+# find the most common lines
+lines, vert_lines = detect_lines(edges)
+# find the most common circles, and get the final image's pixel set
+final_image, circles = detect_circles(edges)
+# try to predict the digit
+predict_digit(final_image, lines, vert_lines, circles)
